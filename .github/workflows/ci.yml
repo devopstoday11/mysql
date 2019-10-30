@@ -91,5 +91,17 @@ jobs:
         echo "GOOGLE_SERVICE_ACCOUNT_JSON_KEY=$(echo $GOOGLE_SERVICE_ACCOUNT_JSON_KEY)" >> hack/config/.env
         make install
         echo
-        kubectl patch mysqlversion/8.0.14 -p '{"spec":{"version":"8.0.18","db":{"image":"alittleprogramming/mysql:8.0.18"},"tools":{"image":"alittleprogramming/mysql-tools:8.0.18"}}}' --type="merge"
+        kubectl patch mysqlversion/8.0.14 -p '{"spec":{"version":"8.0.18","db":{"image":"mysql:8.0.18"},"initContainer":{"image":"kubedb/busybox"},"tools":{"image":"image: alittleprogramming/mysql-tools:8.0-v3"}}}' --type="merge"
+        kubectl get mysqlversion/8.0.14 -o yaml
+        kubectl create -f my-standalone.yaml
+        echo "waiting....."
+        sleep 80
+        echo "operator logs ............"
+        kubectl get pods --all-namespaces | grep "my-operator" | awk '{print $2 " -n " $1}' | xargs kubectl logs
+        echo "pod list ............"
+        kubectl get pods --all-namespaces
+        echo "pod manifest ............"
+        kubectl get pods my-standalone-0 -o yaml
+        echo "pod logs ............"
+        kubectl logs my-standalone-0
         make e2e-tests

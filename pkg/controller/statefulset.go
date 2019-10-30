@@ -161,6 +161,10 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
+					Name:      "my-files",
+					MountPath: "/var/lib/mysql-files",
+				},
+				{
 					Name:      "conf",
 					MountPath: "/etc/mysql",
 				},
@@ -197,6 +201,12 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 			},
 			{
 				Name: "tmp",
+				VolumeSource: core.VolumeSource{
+					EmptyDir: &core.EmptyDirVolumeSource{},
+				},
+			},
+			{
+				Name: "my-files",
 				VolumeSource: core.VolumeSource{
 					EmptyDir: &core.EmptyDirVolumeSource{},
 				},
