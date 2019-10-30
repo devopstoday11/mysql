@@ -91,4 +91,5 @@ jobs:
         echo "GOOGLE_SERVICE_ACCOUNT_JSON_KEY=$(echo $GOOGLE_SERVICE_ACCOUNT_JSON_KEY)" >> hack/config/.env
         make install
         echo
+        kubectl patch mysqlversion/8.0.14 -p '{"spec":{"version":"8.0.18","db":{"image":"alittleprogramming/mysql:8.0.18"},"tools":{"image":"alittleprogramming/mysql-tools:8.0.18"}}}' --type="merge"
         make e2e-tests
