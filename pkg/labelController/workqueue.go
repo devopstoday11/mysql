@@ -60,8 +60,6 @@ func (lc *LabelController) podLabeler(key string) error {
 
 		pod := obj.(*core.Pod).DeepCopy()
 
-		log.Debugf("Pod %s does not exist anymore", pod.Name)
-
 		if meta_util.HasKey(pod.Labels, v1alpha1.LabelDatabaseKind) &&
 			meta_util.HasKey(pod.Labels, v1alpha1.LabelDatabaseName) {
 			isPrimary, err := lc.checkPrimary(pod.ObjectMeta)
@@ -83,13 +81,11 @@ func (lc *LabelController) podLabeler(key string) error {
 }
 
 func (lc *LabelController) checkPrimary(ObjMeta metav1.ObjectMeta) (bool, error) {
-	user := os.Getenv(KeyMySQLUser)
+	user := os.Getenv("MYSQL_ROOT_USERNAME")
 	if user == "" {
 		return false, fmt.Errorf("missing 'MYSQL_ROOT_USERNAME' env in MySQL Pod")
 	}
-	password := os.Getenv(KeyMySQLPassword)
-	//user := "root"
-	//password := "_oQXukNhB-E4FOxC"
+	password := os.Getenv("MYSQL_ROOT_PASSWORD")
 
 	// MySQL query to check master
 	query := `SELECT MEMBER_HOST FROM performance_schema.replication_group_members

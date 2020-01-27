@@ -162,7 +162,7 @@ fmt: $(BUILD_DIRS)
 	        ./hack/fmt.sh $(SRC_DIRS)                           \
 	    "
 
-build: $(OUTBIN) $(LABELER)
+build: $(OUTBIN) $(OUTLABELER)
 
 # The following structure defeats Go's (intentional) behavior to always touch
 # result files, even if they have not changed.  This will still run `go` but

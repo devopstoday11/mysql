@@ -161,6 +161,20 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 				},
 			},
 		}
+
+		LabelContainer := core.Container{
+			Name:            "labeler",
+			Image:           "suaas21/my-labeler:labeler1_linux_amd64",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Args:            []string{
+				"run",
+			},
+			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
+			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
+			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
+			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
+		}
+
 		if mysql.Spec.Topology != nil && mysql.Spec.Topology.Mode != nil &&
 			*mysql.Spec.Topology.Mode == api.MySQLClusterModeGroup {
 			container.Command = []string{
@@ -207,39 +221,6 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 		}
 
 		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, container)
-		in.Spec.Template.Spec.Volumes = []core.Volume{
-			{
-				Name: "tmp",
-				VolumeSource: core.VolumeSource{
-					EmptyDir: &core.EmptyDirVolumeSource{},
-				},
-			},
-		}
-
-		LabelContainer := core.Container{
-			Name:            "labeler",
-			Image:           "suaas21/my-labeler:agent_linux_amd64",
-			ImagePullPolicy: core.PullIfNotPresent,
-			Args:            mysql.Spec.PodTemplate.Spec.Args,
-			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
-			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
-			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
-			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
-		}
-		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, LabelContainer)
-
-		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, container)
-
-		LabelContainer := core.Container{
-			Name:            "labeler",
-			Image:           "suaas21/my-labeler:agent_linux_amd64",
-			ImagePullPolicy: core.PullIfNotPresent,
-			Args:            mysql.Spec.PodTemplate.Spec.Args,
-			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
-			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
-			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
-			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
-		}
 		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, LabelContainer)
 
 		in.Spec.Template.Spec.Volumes = []core.Volume{

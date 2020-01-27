@@ -1,17 +1,14 @@
 package server
 
 import (
-	"path/filepath"
-
 	"kubedb.dev/mysql/pkg/labelController"
 
-	"k8s.io/client-go/util/homedir"
 	"kmodules.xyz/client-go/tools/clientcmd"
 )
 
-var (
-	kubeconfigPath = filepath.Join(homedir.HomeDir(), ".kube", "config")
-)
+//var (
+//	kubeconfigPath = filepath.Join(homedir.HomeDir(), ".kube", "config")
+//)
 
 func (o Options) Validate(args []string) error {
 	return nil
@@ -22,7 +19,7 @@ func (o *Options) Complete() error {
 }
 
 func (o Options) labelerConfig() (*labelController.LabelerConfig, error) {
-	config, err := clientcmd.BuildConfigFromContext(kubeconfigPath, "")
+	config, err := clientcmd.BuildConfigFromContext("", "")
 	if err != nil {
 		return nil, err
 	}
