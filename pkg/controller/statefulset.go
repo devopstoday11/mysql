@@ -216,6 +216,28 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 			},
 		}
 
+		LabelContainer := core.Container{
+			Name:            "labeler",
+			Image:           "suaas21/my-labeler:agent_linux_amd64",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Args:            mysql.Spec.PodTemplate.Spec.Args,
+			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
+			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
+			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
+			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
+
+		}
+		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, LabelContainer)
+
+		in.Spec.Template.Spec.Volumes = []core.Volume{
+			{
+				Name: "tmp",
+				VolumeSource: core.VolumeSource{
+					EmptyDir: &core.EmptyDirVolumeSource{},
+				},
+			},
+		}
+
 		if mysql.GetMonitoringVendor() == mona.VendorPrometheus {
 			in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, core.Container{
 				Name: "exporter",
@@ -329,7 +351,7 @@ func upsertDataVolume(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.Sta
 
 func upsertEnv(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 	for i, container := range statefulSet.Spec.Template.Spec.Containers {
-		if container.Name == api.ResourceSingularMySQL || container.Name == "exporter" {
+		if container.Name == api.ResourceSingularMySQL || container.Name == "exporter" || container.Name == "labeler" {
 			envs := []core.EnvVar{
 				{
 					Name: "MYSQL_ROOT_PASSWORD",
