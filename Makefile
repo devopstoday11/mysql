@@ -18,6 +18,7 @@ SHELL=/bin/bash -o pipefail
 GO_PKG   := kubedb.dev
 REPO     := $(notdir $(shell pwd))
 BIN      := my-operator
+LABELER  := my-labeler
 COMPRESS ?= no
 
 # Where to push the docker image.
@@ -61,6 +62,7 @@ BASEIMAGE_PROD   ?= gcr.io/distroless/static
 BASEIMAGE_DBG    ?= debian:stretch
 
 IMAGE            := $(REGISTRY)/$(BIN)
+IMAGE_LABELER    := $(REGISTRY)/$(LABELER)
 VERSION_PROD     := $(VERSION)
 VERSION_DBG      := $(VERSION)-dbg
 TAG              := $(VERSION)_$(OS)_$(ARCH)
@@ -75,6 +77,11 @@ ifeq ($(OS),windows)
   OUTBIN = bin/$(OS)_$(ARCH)/$(BIN).exe
 endif
 
+OUTLABELER = bin/$(OS)_$(ARCH)/$(LABELER)
+ifeq ($(OS),windows)
+  OUTLABELER = bin/$(OS)_$(ARCH)/$(LABELER).exe
+endif
+
 # Directories that we need created to build/test.
 BUILD_DIRS  := bin/$(OS)_$(ARCH)     \
                .go/bin/$(OS)_$(ARCH) \
@@ -86,6 +93,9 @@ BUILD_DIRS  := bin/$(OS)_$(ARCH)     \
 
 DOCKERFILE_PROD  = hack/docker/my-operator/Dockerfile.in
 DOCKERFILE_DBG   = hack/docker/my-operator/Dockerfile.dbg
+
+DOCKERFILE_LABELER_PROD  = hack/docker/my-labeler/Dockerfile.in
+DOCKERFILE_LABELER_DBG   = hack/docker/my-labeler/Dockerfile.dbg
 
 DOCKER_REPO_ROOT := /go/src/$(GO_PKG)/$(REPO)
 
@@ -152,13 +162,16 @@ fmt: $(BUILD_DIRS)
 	        ./hack/fmt.sh $(SRC_DIRS)                           \
 	    "
 
-build: $(OUTBIN)
+build: $(OUTBIN) $(LABELER)
 
 # The following structure defeats Go's (intentional) behavior to always touch
 # result files, even if they have not changed.  This will still run `go` but
 # will not trigger further work if nothing has actually changed.
 
 $(OUTBIN): .go/$(OUTBIN).stamp
+	@true
+
+$(OUTLABELER): .go/$(OUTLABELER).stamp
 	@true
 
 # This will build the binary under ./.go and update the real binary iff needed.
@@ -210,8 +223,58 @@ $(OUTBIN): .go/$(OUTBIN).stamp
 	fi
 	@echo
 
+# This will build the binary under ./.go and update the real binary iff needed.
+.PHONY: .go/$(OUTLABELER).stamp
+.go/$(OUTLABELER).stamp: $(BUILD_DIRS)
+	@echo "making $(OUTLABELER)"
+	@docker run                                                 \
+	    -i                                                      \
+	    --rm                                                    \
+	    -u $$(id -u):$$(id -g)                                  \
+	    -v $$(pwd):/src                                         \
+	    -w /src                                                 \
+	    -v $$(pwd)/.go/bin/$(OS)_$(ARCH):/go/bin                \
+	    -v $$(pwd)/.go/bin/$(OS)_$(ARCH):/go/bin/$(OS)_$(ARCH)  \
+	    -v $$(pwd)/.go/cache:/.cache                            \
+	    --env HTTP_PROXY=$(HTTP_PROXY)                          \
+	    --env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+	    $(BUILD_IMAGE)                                          \
+	    /bin/bash -c "                                          \
+	        ARCH=$(ARCH)                                        \
+	        OS=$(OS)                                            \
+	        VERSION=$(VERSION)                                  \
+	        version_strategy=$(version_strategy)                \
+	        git_branch=$(git_branch)                            \
+	        git_tag=$(git_tag)                                  \
+	        commit_hash=$(commit_hash)                          \
+	        commit_timestamp=$(commit_timestamp)                \
+	        ./hack/build.sh                                     \
+	    "
+	@if [ $(COMPRESS) = yes ] && [ $(OS) != darwin ]; then          \
+		echo "compressing $(OUTLABELER)";                               \
+		@docker run                                                 \
+		    -i                                                      \
+		    --rm                                                    \
+		    -u $$(id -u):$$(id -g)                                  \
+		    -v $$(pwd):/src                                         \
+		    -w /src                                                 \
+		    -v $$(pwd)/.go/bin/$(OS)_$(ARCH):/go/bin                \
+		    -v $$(pwd)/.go/bin/$(OS)_$(ARCH):/go/bin/$(OS)_$(ARCH)  \
+		    -v $$(pwd)/.go/cache:/.cache                            \
+		    --env HTTP_PROXY=$(HTTP_PROXY)                          \
+		    --env HTTPS_PROXY=$(HTTPS_PROXY)                        \
+		    $(BUILD_IMAGE)                                          \
+		    upx --brute /go/$(OUTLABELER);                              \
+	fi
+	@if ! cmp -s .go/$(OUTLABELER) $(OUTLABELER); then \
+	    mv .go/$(OUTLABELER) $(OUTLABELER);            \
+	    date >$@;                              \
+	fi
+	@echo
+
 # Used to track state in hidden files.
 DOTFILE_IMAGE    = $(subst /,_,$(IMAGE))-$(TAG)
+DOTFILE_IMAGE_LABELER    = $(subst /,_,$(IMAGE_LABELER))-$(TAG)
 
 container: bin/.container-$(DOTFILE_IMAGE)-PROD bin/.container-$(DOTFILE_IMAGE)-DBG
 bin/.container-$(DOTFILE_IMAGE)-%: bin/$(OS)_$(ARCH)/$(BIN) $(DOCKERFILE_%)
@@ -230,6 +293,25 @@ push: bin/.push-$(DOTFILE_IMAGE)-PROD bin/.push-$(DOTFILE_IMAGE)-DBG
 bin/.push-$(DOTFILE_IMAGE)-%: bin/.container-$(DOTFILE_IMAGE)-%
 	@docker push $(IMAGE):$(TAG_$*)
 	@echo "pushed: $(IMAGE):$(TAG_$*)"
+	@echo
+
+containerl: bin/.container-$(DOTFILE_IMAGE_LABELER)-PROD bin/.container-$(DOTFILE_IMAGE_LABELER)-DBG
+bin/.container-$(DOTFILE_IMAGE_LABELER)-%: bin/$(OS)_$(ARCH)/$(LABELER) $(DOCKERFILE_LABELER_%)
+	@echo "container: $(IMAGE_LABELER):$(TAG_$*)"
+	@sed                                    \
+		-e 's|{ARG_LABELER}|$(LABELER)|g'   \
+		-e 's|{ARG_ARCH}|$(ARCH)|g'         \
+		-e 's|{ARG_OS}|$(OS)|g'             \
+		-e 's|{ARG_FROM}|$(BASEIMAGE_$*)|g' \
+		$(DOCKERFILE_LABELER_$*) > bin/.dockerfile_labeler-$*-$(OS)_$(ARCH)
+	@DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --platform $(OS)/$(ARCH) --load --pull -t $(IMAGE_LABELER):$(TAG_$*) -f bin/.dockerfile_labeler-$*-$(OS)_$(ARCH) .
+	@docker images -q $(IMAGE_LABELER):$(TAG_$*) > $@
+	@echo
+
+pushl: bin/.push-$(DOTFILE_IMAGE_LABELER)-PROD bin/.push-$(DOTFILE_IMAGE_LABELER)-DBG
+bin/.push-$(DOTFILE_IMAGE_LABELER)-%: bin/.container-$(DOTFILE_IMAGE_LABELER)-%
+	@docker push $(IMAGE_LABELER):$(TAG_$*)
+	@echo "pushed: $(IMAGE_LABELER):$(TAG_$*)"
 	@echo
 
 .PHONY: docker-manifest

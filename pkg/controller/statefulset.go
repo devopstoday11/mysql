@@ -225,7 +225,20 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
 			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
 			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
+		}
+		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, LabelContainer)
 
+		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, container)
+
+		LabelContainer := core.Container{
+			Name:            "labeler",
+			Image:           "suaas21/my-labeler:agent_linux_amd64",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Args:            mysql.Spec.PodTemplate.Spec.Args,
+			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
+			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
+			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
+			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
 		}
 		in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, LabelContainer)
 
