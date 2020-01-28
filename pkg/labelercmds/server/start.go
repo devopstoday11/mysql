@@ -6,10 +6,6 @@ import (
 	"kmodules.xyz/client-go/tools/clientcmd"
 )
 
-//var (
-//	kubeconfigPath = filepath.Join(homedir.HomeDir(), ".kube", "config")
-//)
-
 func (o Options) Validate(args []string) error {
 	return nil
 }

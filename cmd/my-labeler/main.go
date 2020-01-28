@@ -26,7 +26,7 @@ import (
 func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
-	if err := labelercmds.NewLabelerRootCmd().Execute(); err != nil {
+	if err := labelercmds.NewRootCmd().Execute(); err != nil {
 		log.Fatal(err)
 	}
 }

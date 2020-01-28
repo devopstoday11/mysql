@@ -3,11 +3,13 @@ package labelController
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+	api "kubedb.dev/apimachinery/apis/kubedb/v1alpha1"
+
 	cs "kubedb.dev/apimachinery/client/clientset/versioned"
 
 	"github.com/appscode/go/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	v12 "k8s.io/client-go/informers/core/v1"
@@ -30,7 +32,7 @@ type LabelController struct {
 	watchNamespace string
 
 	// selector for event-handler of MySQL Pod
-	selector fields.Selector
+	selector labels.Selector
 	// tweakListOptions for watcher
 	tweakListOptions func(*metav1.ListOptions)
 
@@ -39,7 +41,8 @@ type LabelController struct {
 	podInformer cache.SharedIndexInformer
 	podLister   v1.PodLister
 
-	hostName string
+	// BaseName(StatefulSet name) of the pod
+	baseName string
 }
 
 func NewLabelController(
@@ -50,7 +53,7 @@ func NewLabelController(
 	maxNumRequeues int,
 	numThreads int,
 	watchNamespace string,
-	hostName string,
+	baseName string,
 ) *LabelController {
 	return &LabelController{
 		kubeInformerFactory: kubeInformerFactory,
@@ -60,8 +63,10 @@ func NewLabelController(
 
 		maxNumRequeues: maxNumRequeues,
 		numThreads:     numThreads,
-		//selector:       fields.OneTermEqualSelector("metadata.name", "my-group-2"),
-		selector:       fields.OneTermEqualSelector("metadata.name", hostName),
+		selector: labels.SelectorFromSet(map[string]string{
+			api.LabelDatabaseKind: api.ResourceKindMySQL,
+			api.LabelDatabaseName: baseName,
+		}),
 		watchNamespace: watchNamespace,
 	}
 }

@@ -14,10 +14,8 @@ import (
 )
 
 const (
-	mysqlUser = "root"
-
-	KeyMySQLUser     = "username"
-	KeyMySQLPassword = "password"
+	KeyMySQLUser     = "MYSQL_ROOT_USERNAME"
+	KeyMySQLPassword = "MYSQL_ROOT_PASSWORD"
 	DatabaseName     = "mysql"
 	Primary          = "primary"
 	Secondary        = "Secondary"
@@ -42,6 +40,9 @@ func (c *LabelerConfig) New() (*LabelController, error) {
 	if err != nil {
 		return nil, err
 	}
+	// get baseName(StatefulSet name) from pod name
+	baseName := hostName[:len(hostName)-2]
+
 	ctrl := NewLabelController(
 		c.KubeInformerFactory,
 		c.ClientConfig,
@@ -50,11 +51,11 @@ func (c *LabelerConfig) New() (*LabelController, error) {
 		c.MaxNumRequeues,
 		c.NumThreads,
 		c.WatchNamespace,
-		hostName,
+		baseName,
 	)
 
 	ctrl.tweakListOptions = func(options *metav1.ListOptions) {
-		options.FieldSelector = ctrl.selector.String()
+		options.LabelSelector = ctrl.selector.String()
 	}
 
 	ctrl.initWatcher()

@@ -3,18 +3,13 @@ package labelController
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
-	"kubedb.dev/apimachinery/apis/kubedb/v1alpha1"
-
 	"github.com/appscode/go/log"
-	"github.com/golang/glog"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	v1 "kmodules.xyz/client-go/core/v1"
-	meta_util "kmodules.xyz/client-go/meta"
 	"kmodules.xyz/client-go/tools/queue"
 )
 
@@ -28,18 +23,14 @@ func (lc *LabelController) initWatcher() {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldPod, ok := oldObj.(*core.Pod)
-			if !ok {
-				glog.Errorf("Invalid Pod Object")
-				return
+			if pod, ok := newObj.(*core.Pod); ok {
+				queue.Enqueue(lc.podQueue.GetQueue(), pod)
 			}
-			newPod, ok := newObj.(*core.Pod)
-			if !ok {
-				glog.Errorf("Invalid Pod Object")
-				return
-			}
-			if !reflect.DeepEqual(&oldPod, &newPod) {
-				queue.Enqueue(lc.podQueue.GetQueue(), newPod)
+
+		},
+		DeleteFunc: func(obj interface{}) {
+			if pod, ok := obj.(*core.Pod); ok {
+				queue.Enqueue(lc.podQueue.GetQueue(), pod)
 			}
 		},
 	})
@@ -57,35 +48,35 @@ func (lc *LabelController) podLabeler(key string) error {
 	if !exists {
 		log.Debugf("Pod %s does not exist anymore", key)
 	} else {
-
 		pod := obj.(*core.Pod).DeepCopy()
 
-		if meta_util.HasKey(pod.Labels, v1alpha1.LabelDatabaseKind) &&
-			meta_util.HasKey(pod.Labels, v1alpha1.LabelDatabaseName) {
-			isPrimary, err := lc.checkPrimary(pod.ObjectMeta)
-			if err != nil {
+		isPrimary, err := lc.checkPrimary(pod.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		if isPrimary {
+			if err := lc.ensurePrimaryRole(pod); err != nil {
 				return err
 			}
-			if isPrimary {
-				if err := lc.ensureRoleAsPrimary(pod); err != nil {
-					return err
-				}
-			} else {
-				if err := lc.removeRoleFromLabels(pod); err != nil {
-					return err
-				}
+		} else {
+			if err := lc.removePrimaryRole(pod); err != nil {
+				return err
 			}
 		}
+		log.Debugln("Set primary as label in %s/%s pod have succeeded!!", pod.Namespace, pod.Name)
 	}
 	return nil
 }
 
 func (lc *LabelController) checkPrimary(ObjMeta metav1.ObjectMeta) (bool, error) {
-	user := os.Getenv("MYSQL_ROOT_USERNAME")
+	user := os.Getenv(KeyMySQLUser)
 	if user == "" {
 		return false, fmt.Errorf("missing 'MYSQL_ROOT_USERNAME' env in MySQL Pod")
 	}
-	password := os.Getenv("MYSQL_ROOT_PASSWORD")
+	password := os.Getenv(KeyMySQLPassword)
+	if user == "" {
+		return false, fmt.Errorf("missing 'MYSQL_ROOT_PASSWORD' env in MySQL Pod")
+	}
 
 	// MySQL query to check master
 	query := `SELECT MEMBER_HOST FROM performance_schema.replication_group_members
@@ -106,7 +97,7 @@ func (lc *LabelController) checkPrimary(ObjMeta metav1.ObjectMeta) (bool, error)
 	return false, nil
 }
 
-func (ls *LabelController) ensureRoleAsPrimary(pod *core.Pod) error {
+func (ls *LabelController) ensurePrimaryRole(pod *core.Pod) error {
 	_, _, err := v1.PatchPod(ls.kubeClient, pod, func(in *core.Pod) *core.Pod {
 		in.Labels = v1.UpsertMap(in.Labels, map[string]string{
 			LabelRole: Primary,
@@ -116,7 +107,7 @@ func (ls *LabelController) ensureRoleAsPrimary(pod *core.Pod) error {
 	return err
 }
 
-func (ls *LabelController) removeRoleFromLabels(pod *core.Pod) error {
+func (ls *LabelController) removePrimaryRole(pod *core.Pod) error {
 	_, _, err := v1.PatchPod(ls.kubeClient, pod, func(in *core.Pod) *core.Pod {
 		labels := pod.Labels
 		delete(labels, LabelRole)

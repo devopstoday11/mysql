@@ -30,7 +30,7 @@ import (
 	appcatscheme "kmodules.xyz/custom-resources/client/clientset/versioned/scheme"
 )
 
-func NewLabelerRootCmd() *cobra.Command {
+func NewRootCmd() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:               "my-labeler",
 		DisableAutoGenTag: true,
@@ -46,7 +46,7 @@ func NewLabelerRootCmd() *cobra.Command {
 	logs.ParseFlags()
 
 	stopCh := genericapiserver.SetupSignalHandler()
-	rootCmd.AddCommand(NewLabelerCmdRun(os.Stdout, os.Stderr, stopCh))
+	rootCmd.AddCommand(NewCmdRun(os.Stdout, os.Stderr, stopCh))
 
 	return rootCmd
 }

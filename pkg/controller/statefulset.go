@@ -166,13 +166,9 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 			Name:            "labeler",
 			Image:           "suaas21/my-labeler:labeler1_linux_amd64",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Args:            []string{
+			Args: []string{
 				"run",
 			},
-			Resources:       mysql.Spec.PodTemplate.Spec.Resources,
-			LivenessProbe:   mysql.Spec.PodTemplate.Spec.LivenessProbe,
-			ReadinessProbe:  mysql.Spec.PodTemplate.Spec.ReadinessProbe,
-			Lifecycle:       mysql.Spec.PodTemplate.Spec.Lifecycle,
 		}
 
 		if mysql.Spec.Topology != nil && mysql.Spec.Topology.Mode != nil &&

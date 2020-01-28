@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewLabelerCmdRun(out, errOut io.Writer, stopCh <-chan struct{}) *cobra.Command {
+func NewCmdRun(out, errOut io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	o := server.NewOptions(out, errOut)
 
 	cmd := &cobra.Command{
