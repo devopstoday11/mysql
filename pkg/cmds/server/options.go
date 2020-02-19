@@ -24,6 +24,7 @@ import (
 	"kubedb.dev/mysql/pkg/controller"
 
 	prom "github.com/coreos/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	cm "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
 	"github.com/spf13/pflag"
 	core "k8s.io/api/core/v1"
 	kext_cs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
@@ -135,6 +136,10 @@ func (s *ExtraOptions) ApplyTo(cfg *controller.OperatorConfig) error {
 	cfg.KubeInformerFactory = informers.NewSharedInformerFactory(cfg.KubeClient, cfg.ResyncPeriod)
 	cfg.KubedbInformerFactory = kubedbinformers.NewSharedInformerFactory(cfg.DBClient, cfg.ResyncPeriod)
 	cfg.StashInformerFactory = stashInformers.NewSharedInformerFactory(cfg.StashClient, cfg.ResyncPeriod)
+
+	if cfg.CertManagerClient, err = cm.NewForConfig(cfg.ClientConfig); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -802,6 +802,8 @@ k8s.io/repo-infra v0.0.0-20181204233714-00fe14e3d1a3/go.mod h1:+G1xBfZDfVFsm1Tj/
 k8s.io/sample-apiserver v0.0.0-20191114104439-68caf20693ac/go.mod h1:Ye1NXrEsTeD/fi84Or+FsnANoFlDJkOWojptBh7QWns=
 k8s.io/utils v0.0.0-20190801114015-581e00157fb1 h1:+ySTxfHnfzZb9ys375PXNlLhkJPLKgHajBU0N62BDvE=
 k8s.io/utils v0.0.0-20190801114015-581e00157fb1/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
+kmodules.xyz/cert-manager-util v0.0.0-20191207182648-ff16d6c9b046 h1:JsNvoRxhwoXnyram9wcHhd5evkmTSAl1d6vRoZj5w2o=
+kmodules.xyz/cert-manager-util v0.0.0-20191207182648-ff16d6c9b046/go.mod h1:Y0WdGXWYkG49uYOK/6m3OrA7UdZtdJ1M2WFQCqwyYHQ=
 kmodules.xyz/client-go v0.0.0-20191127054604-26981530831d/go.mod h1:OFxuKCiVR+MYlR2a08FkfaF+IbXkLe0xBetu2LTUuGI=
 kmodules.xyz/client-go v0.0.0-20191211192817-f1dcd02124ba/go.mod h1:OFxuKCiVR+MYlR2a08FkfaF+IbXkLe0xBetu2LTUuGI=
 kmodules.xyz/client-go v0.0.0-20200116162153-e083ae16abca/go.mod h1:OFxuKCiVR+MYlR2a08FkfaF+IbXkLe0xBetu2LTUuGI=
@@ -824,8 +826,8 @@ kmodules.xyz/prober v0.0.0-20191216013129-7c91e2b0edb2 h1:wxHidC0FZfaHTRG8ADG9qd
 kmodules.xyz/prober v0.0.0-20191216013129-7c91e2b0edb2/go.mod h1:YdapXw+AMO1U/yYZloDA0dTiha89Rv1iqK05Jh7qQQY=
 kmodules.xyz/webhook-runtime v0.0.0-20191127075323-d4bfdee6974d h1:qLWf0Xk2sAWT9qWBcodkinrzt0jkYTKhuHCsbwpXutE=
 kmodules.xyz/webhook-runtime v0.0.0-20191127075323-d4bfdee6974d/go.mod h1:aaaxyAmKOpw0ey3LrpBkqWq0LTl35f9PW6mhwVDBMow=
-kubedb.dev/apimachinery v0.13.0-rc.3.0.20200129213849-518ce3c461bd h1:nh9um0bjSBgLnVtph4d9NbL8c3vW/QAqBScBt6wLXPM=
-kubedb.dev/apimachinery v0.13.0-rc.3.0.20200129213849-518ce3c461bd/go.mod h1:IVOZ8gHUebFT40io6A/dGVGCkSXk+ZdDCulNYilaKyc=
+kubedb.dev/apimachinery v0.13.0-rc.3.0.20200218083523-bf028fd14056 h1:I0U4yOAiisOzDfbpkrhHwpMKbkUrIRu3p42UJW9Dd4c=
+kubedb.dev/apimachinery v0.13.0-rc.3.0.20200218083523-bf028fd14056/go.mod h1:IVOZ8gHUebFT40io6A/dGVGCkSXk+ZdDCulNYilaKyc=
 launchpad.net/gocheck v0.0.0-20140225173054-000000000087/go.mod h1:hj7XX3B/0A+80Vse0e+BUHsHMTEhd0O4cpUHr/e/BUM=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=

@@ -19077,18 +19077,10 @@ func schema_apimachinery_apis_kubedb_v1alpha1_MongoDBReplicaSet(ref common.Refer
 							Format:      "",
 						},
 					},
-					"keyFile": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: Use spec.certificateSecret",
-							Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
-						},
-					},
 				},
 				Required: []string{"name"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.SecretVolumeSource"},
 	}
 }
 
@@ -19230,12 +19222,6 @@ func schema_apimachinery_apis_kubedb_v1alpha1_MongoDBSpec(ref common.ReferenceCa
 							Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
 						},
 					},
-					"certificateSecret": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Secret for KeyFile or SSL certificates. Contains `tls.pem` or keyfile `key.txt` depending on enableSSL.",
-							Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
-						},
-					},
 					"clusterAuthMode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ClusterAuthMode for replicaset or sharding. (default will be x509 if sslmode is not `disabled`.) See available ClusterAuthMode: https://docs.mongodb.com/manual/reference/program/mongod/#cmdoption-mongod-clusterauthmode",
@@ -19304,6 +19290,12 @@ func schema_apimachinery_apis_kubedb_v1alpha1_MongoDBSpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "TLS contains tls configurations for client and server.",
 							Ref:         ref("kubedb.dev/apimachinery/apis/kubedb/v1alpha1.TLSConfig"),
+						},
+					},
+					"keyFile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Secret for KeyFile. Contains keyfile `key.txt` if spec.clusterAuthMode == keyFile || sendKeyFile",
+							Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
 						},
 					},
 					"terminationPolicy": {
@@ -19593,6 +19585,13 @@ func schema_apimachinery_apis_kubedb_v1alpha1_MySQLSpec(ref common.ReferenceCall
 					"halted": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates that the database is halted and all offshoot Kubernetes resources except PVCs are deleted.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"requireSSL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates that the database server need to be encrypted connections(ssl) as mandatory or not",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

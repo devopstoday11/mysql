@@ -17,7 +17,6 @@ package controller
 
 import (
 	"fmt"
-
 	api "kubedb.dev/apimachinery/apis/kubedb/v1alpha1"
 	"kubedb.dev/apimachinery/client/clientset/versioned/typed/kubedb/v1alpha1/util"
 	"kubedb.dev/apimachinery/pkg/eventer"
@@ -77,6 +76,16 @@ func (c *Controller) create(mysql *api.MySQL) error {
 
 	if err := c.ensureDatabaseSecret(mysql); err != nil {
 		return err
+	}
+
+	if mysql.Spec.TLS != nil {
+		if err := c.manageTLS(mysql); err != nil {
+			return err
+		}
+
+		if err := c.checkTLSCerts(mysql); err != nil {
+			return err
+		}
 	}
 
 	// ensure database StatefulSet

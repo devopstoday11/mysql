@@ -268,6 +268,11 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 		in.Spec.UpdateStrategy = mysql.Spec.UpdateStrategy
 		in = upsertUserEnv(in, mysql)
 
+		// configure tls
+		if mysql.Spec.TLS != nil {
+			in = cofigureTLS(in, mysql)
+		}
+
 		return in
 	})
 }
@@ -466,4 +471,101 @@ func upsertCustomConfig(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.S
 		}
 	}
 	return statefulSet
+}
+
+func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
+	for i, container := range sts.Spec.Template.Spec.Containers {
+		if container.Name == api.ResourceSingularMySQL {
+			tlsArgs := []string{
+				"--ssl-capath=/etc/mysql/certs",
+				"--ssl-ca=/etc/mysql/certs/ca.crt",
+				"--ssl-cert=/etc/mysql/certs/server.crt",
+				"--ssl-key=/etc/mysql/certs/server.key",
+			}
+			args := container.Args
+			args = append(args, tlsArgs...)
+			if mysql.Spec.RequireSSL {
+				args = append(args, "--require-secure-transport=ON")
+			}
+			sts.Spec.Template.Spec.Containers[i].Args = args
+		}
+		volumeMount := core.VolumeMount{
+			Name:      "tls-volume",
+			MountPath: "/etc/mysql/certs",
+		}
+		volumeMounts := container.VolumeMounts
+		volumeMounts = core_util.UpsertVolumeMount(volumeMounts, volumeMount)
+		sts.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
+	}
+
+	volume := core.Volume{
+		Name: "tls-volume",
+		VolumeSource: core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{
+				Sources: []core.VolumeProjection{
+					{
+						Secret: &core.SecretProjection{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLServerCertSuffix),
+							},
+							Items: []core.KeyToPath{
+								{
+									Key:  "ca.crt",
+									Path: "ca.crt",
+								},
+								{
+									Key:  "tls.crt",
+									Path: "server.crt",
+								},
+								{
+									Key:  "tls.key",
+									Path: "server.key",
+								},
+							},
+						},
+					},
+					{
+						Secret: &core.SecretProjection{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLClientCertSuffix),
+							},
+							Items: []core.KeyToPath{
+								{
+									Key:  "tls.crt",
+									Path: "client.crt",
+								},
+								{
+									Key:  "tls.key",
+									Path: "client.key",
+								},
+							},
+						},
+					},
+					{
+						Secret: &core.SecretProjection{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLExporterClientCertSuffix),
+							},
+							Items: []core.KeyToPath{
+								{
+									Key:  "tls.crt",
+									Path: "exporter.crt",
+								},
+								{
+									Key:  "tls.key",
+									Path: "exporter.key",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	sts.Spec.Template.Spec.Volumes = core_util.UpsertVolume(
+		sts.Spec.Template.Spec.Volumes,
+		volume,
+	)
+
+	return sts
 }
