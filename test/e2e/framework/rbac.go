@@ -23,21 +23,23 @@ import (
 )
 
 const (
-	podsecuritypolicies = "podsecuritypolicies"
-	rbacApiGroup        = "rbac.authorization.k8s.io"
-	GET                 = "get"
-	LIST                = "list"
-	PATCH               = "patch"
-	CREATE              = "create"
-	UPDATE              = "update"
-	USE                 = "use"
-	POLICY              = "policy"
-	Role                = "Role"
-	ServiceAccount      = "ServiceAccount"
-	CustomSecretSuffix  = "custom-secret"
-	mysqlUser           = "root"
-	KeyMySQLUser        = "username"
-	KeyMySQLPassword    = "password"
+	podsecuritypolicies          = "podsecuritypolicies"
+	rbacApiGroup                 = "rbac.authorization.k8s.io"
+	GET                          = "get"
+	LIST                         = "list"
+	PATCH                        = "patch"
+	CREATE                       = "create"
+	UPDATE                       = "update"
+	USE                          = "use"
+	POLICY                       = "policy"
+	Role                         = "Role"
+	ServiceAccount               = "ServiceAccount"
+	CustomSecretSuffix           = "custom-secret"
+	mysqlUser                    = "root"
+	KeyMySQLUser                 = "username"
+	KeyMySQLPassword             = "password"
+	mysqlRequiredSSLUser         = "user"
+	mysqlRequiredSSLUserPassword = "pass"
 )
 
 func (i *Invocation) ServiceAccount() *core.ServiceAccount {

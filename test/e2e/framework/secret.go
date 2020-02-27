@@ -243,3 +243,22 @@ func (i *Invocation) SecretForDatabaseAuthentication(meta metav1.ObjectMeta, man
 		},
 	}
 }
+
+func (f *Framework) DeleteGarbageCASecrets(secretList []*core.Secret) {
+	if len(secretList) == 0 {
+		return
+	}
+	for _, secret := range secretList {
+		f.DeleteCASecret(secret)
+	}
+}
+
+func (f *Framework) DeleteCASecret(clientCASecret *core.Secret) {
+	err := f.CheckSecret(clientCASecret)
+	if err != nil {
+		return
+	}
+	if err := f.DeleteSecret(clientCASecret.ObjectMeta); err != nil && !kerr.IsNotFound(err) {
+		fmt.Printf("error in deletion of CA secret. Error: %v", err)
+	}
+}

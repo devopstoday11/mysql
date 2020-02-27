@@ -371,8 +371,35 @@ func (c *Controller) checkTLSCerts(mysql *api.MySQL) error {
 		return err
 	}
 
-	if _, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLExporterClientCertSuffix), metav1.GetOptions{}); err != nil {
+	_, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLExporterClientCertSuffix), metav1.GetOptions{})
+	return err
+}
+
+func (c *Controller) ensureExporterSecretForTLSConfig(mysql *api.MySQL) error {
+	//get mysql secret
+	secret, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), "auth"), metav1.GetOptions{})
+	if err != nil {
 		return err
 	}
-	return nil
+	// manage secret for exporter
+	secretMeta := metav1.ObjectMeta{
+		Name:      "exporter-cnf",
+		Namespace: mysql.Namespace,
+	}
+	_, _, err = core_util.CreateOrPatchSecret(c.Client, secretMeta, func(in *core.Secret) *core.Secret {
+		in.ObjectMeta = secretMeta
+		in.StringData = map[string]string{
+			"exporter.cnf": fmt.Sprintf(`[client]
+user = %s
+password = %s
+host = 127.0.0.1
+port = 3306
+ssl-ca=/etc/mysql/certs/ca.crt
+ssl-cert=/etc/mysql/certs/exporter.crt
+ssl-key=/etc/mysql/certs/exporter.key
+`, secret.Data["username"], secret.Data["password"]),
+		}
+		return in
+	})
+	return err
 }

@@ -166,10 +166,27 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 			container.Command = []string{
 				"peer-finder",
 			}
-			userProvidedArgs := strings.Join(mysql.Spec.PodTemplate.Spec.Args, " ")
+
+			args := mysql.Spec.PodTemplate.Spec.Args
+
+			// pass args in peer-finder to configure TLS for group replication
+			if mysql.Spec.TLS != nil {
+				tlsArgs := []string{
+					"--ssl-capath=/etc/mysql/certs",
+					"--ssl-ca=/etc/mysql/certs/ca.crt",
+					"--ssl-cert=/etc/mysql/certs/server.crt",
+					"--ssl-key=/etc/mysql/certs/server.key",
+				}
+				args = append(args, tlsArgs...)
+				if mysql.Spec.RequireSSL {
+					args = append(args, "--require-secure-transport=ON ")
+				}
+			}
+
+			providedArgs := strings.Join(args, " ")
 			container.Args = []string{
 				fmt.Sprintf("-service=%s", mysql.GoverningServiceName()),
-				fmt.Sprintf("-on-start=/on-start.sh %s", userProvidedArgs),
+				fmt.Sprintf("-on-start=/on-start.sh %s", providedArgs),
 			}
 			if container.LivenessProbe != nil && structs.IsZero(*container.LivenessProbe) {
 				container.LivenessProbe = nil
@@ -217,6 +234,24 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 		}
 
 		if mysql.GetMonitoringVendor() == mona.VendorPrometheus {
+			var argsStr string
+			var args []string
+
+			args = mysql.Spec.Monitor.Prometheus.Exporter.Args
+			// pass config.my-cnf flag into exporter to configure TLS
+			if mysql.Spec.TLS != nil {
+				// ref: https://github.com/prometheus/mysqld_exporter#general-flags &
+				// https://github.com/prometheus/mysqld_exporter#customizing-configuration-for-a-ssl-connection
+				args = append(args, "--config.my-cnf=/etc/mysql/certs/exporter.cnf ")
+				argsStr = fmt.Sprintf(`/bin/mysqld_exporter --web.listen-address=:%v --web.telemetry-path=%v %v`,
+					mysql.Spec.Monitor.Prometheus.Exporter.Port, mysql.StatsService().Path(), strings.Join(args, " "))
+			} else {
+				// DATA_SOURCE_NAME=user:password@tcp(localhost:5555)/dbname
+				// ref: https://github.com/prometheus/mysqld_exporter#setting-the-mysql-servers-data-source-name
+				argsStr = fmt.Sprintf(`export DATA_SOURCE_NAME="${MYSQL_ROOT_USERNAME:-}:${MYSQL_ROOT_PASSWORD:-}@(127.0.0.1:3306)/"
+						/bin/mysqld_exporter --web.listen-address=:%v --web.telemetry-path=%v %v`,
+					mysql.Spec.Monitor.Prometheus.Exporter.Port, mysql.StatsService().Path(), strings.Join(args, " "))
+			}
 			in.Spec.Template.Spec.Containers = core_util.UpsertContainer(in.Spec.Template.Spec.Containers, core.Container{
 				Name: "exporter",
 				Command: []string{
@@ -224,11 +259,7 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 				},
 				Args: []string{
 					"-c",
-					// DATA_SOURCE_NAME=user:password@tcp(localhost:5555)/dbname
-					// owner: https://github.com/prometheus/mysqld_exporter#setting-the-mysql-servers-data-source-name
-					fmt.Sprintf(`export DATA_SOURCE_NAME="${MYSQL_ROOT_USERNAME:-}:${MYSQL_ROOT_PASSWORD:-}@(127.0.0.1:3306)/"
-						/bin/mysqld_exporter --web.listen-address=:%v --web.telemetry-path=%v %v`,
-						mysql.Spec.Monitor.Prometheus.Exporter.Port, mysql.StatsService().Path(), strings.Join(mysql.Spec.Monitor.Prometheus.Exporter.Args, " ")),
+					argsStr,
 				},
 				Image: mysqlVersion.Spec.Exporter.Image,
 				Ports: []core.ContainerPort{
@@ -475,7 +506,7 @@ func upsertCustomConfig(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.S
 
 func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 	for i, container := range sts.Spec.Template.Spec.Containers {
-		if container.Name == api.ResourceSingularMySQL {
+		if container.Name == api.ResourceSingularMySQL && mysql.Spec.Topology == nil {
 			tlsArgs := []string{
 				"--ssl-capath=/etc/mysql/certs",
 				"--ssl-ca=/etc/mysql/certs/ca.crt",
@@ -489,6 +520,7 @@ func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 			}
 			sts.Spec.Template.Spec.Containers[i].Args = args
 		}
+
 		volumeMount := core.VolumeMount{
 			Name:      "tls-volume",
 			MountPath: "/etc/mysql/certs",
@@ -496,6 +528,16 @@ func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 		volumeMounts := container.VolumeMounts
 		volumeMounts = core_util.UpsertVolumeMount(volumeMounts, volumeMount)
 		sts.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
+
+		if container.Name == "exporter" {
+			volumeMount := core.VolumeMount{
+				Name:      "exporter-tls-volume",
+				MountPath: "/etc/mysql/certs",
+			}
+			volumeMounts := container.VolumeMounts
+			volumeMounts = core_util.UpsertVolumeMount(volumeMounts, volumeMount)
+			sts.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
+		}
 	}
 
 	volume := core.Volume{
@@ -541,12 +583,26 @@ func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 							},
 						},
 					},
+				},
+			},
+		},
+	}
+
+	exporterTLSVolume := core.Volume{
+		Name: "exporter-tls-volume",
+		VolumeSource: core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{
+				Sources: []core.VolumeProjection{
 					{
 						Secret: &core.SecretProjection{
 							LocalObjectReference: core.LocalObjectReference{
 								Name: fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLExporterClientCertSuffix),
 							},
 							Items: []core.KeyToPath{
+								{
+									Key:  "ca.crt",
+									Path: "ca.crt",
+								},
 								{
 									Key:  "tls.crt",
 									Path: "exporter.crt",
@@ -558,13 +614,28 @@ func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 							},
 						},
 					},
+					{
+						Secret: &core.SecretProjection{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: "exporter-cnf",
+							},
+							Items: []core.KeyToPath{
+								{
+									Key:  "exporter.cnf",
+									Path: "exporter.cnf",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 	}
+
 	sts.Spec.Template.Spec.Volumes = core_util.UpsertVolume(
 		sts.Spec.Template.Spec.Volumes,
 		volume,
+		exporterTLSVolume,
 	)
 
 	return sts

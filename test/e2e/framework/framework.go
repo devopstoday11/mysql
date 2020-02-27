@@ -16,10 +16,15 @@ limitations under the License.
 package framework
 
 import (
+	"path/filepath"
+
 	api "kubedb.dev/apimachinery/apis/kubedb/v1alpha1"
 	cs "kubedb.dev/apimachinery/client/clientset/versioned"
 
 	"github.com/appscode/go/crypto/rand"
+	cm "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
+	"github.com/spf13/afero"
+	"gomodules.xyz/cert/certstore"
 	crd_cs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -30,20 +35,22 @@ import (
 
 var (
 	DockerRegistry = "kubedbci"
-	DBCatalogName  = "8.0.14"
+	DBCatalogName  = "5.7.25"
 )
 
 type Framework struct {
-	restConfig       *rest.Config
-	kubeClient       kubernetes.Interface
-	apiExtKubeClient crd_cs.ApiextensionsV1beta1Interface
-	dbClient         cs.Interface
-	kaClient         ka.Interface
-	appCatalogClient appcat_cs.AppcatalogV1alpha1Interface
-	stashClient      scs.Interface
-	namespace        string
-	name             string
-	StorageClass     string
+	restConfig        *rest.Config
+	kubeClient        kubernetes.Interface
+	apiExtKubeClient  crd_cs.ApiextensionsV1beta1Interface
+	dbClient          cs.Interface
+	kaClient          ka.Interface
+	appCatalogClient  appcat_cs.AppcatalogV1alpha1Interface
+	stashClient       scs.Interface
+	namespace         string
+	name              string
+	StorageClass      string
+	CertStore         *certstore.CertStore
+	certManagerClient cm.Interface
 }
 
 func New(
@@ -55,19 +62,30 @@ func New(
 	appCatalogClient appcat_cs.AppcatalogV1alpha1Interface,
 	stashClient scs.Interface,
 	storageClass string,
-) *Framework {
-	return &Framework{
-		restConfig:       restConfig,
-		kubeClient:       kubeClient,
-		apiExtKubeClient: apiExtKubeClient,
-		dbClient:         dbClient,
-		kaClient:         kaClient,
-		appCatalogClient: appCatalogClient,
-		stashClient:      stashClient,
-		name:             "mysql-operator",
-		namespace:        rand.WithUniqSuffix(api.ResourceSingularMySQL),
-		StorageClass:     storageClass,
+	certManagerClient cm.Interface,
+) (*Framework, error) {
+	store, err := certstore.NewCertStore(afero.NewMemMapFs(), filepath.Join("", "pki"))
+	if err != nil {
+		return nil, err
 	}
+	err = store.InitCA()
+	if err != nil {
+		return nil, err
+	}
+	return &Framework{
+		restConfig:        restConfig,
+		kubeClient:        kubeClient,
+		apiExtKubeClient:  apiExtKubeClient,
+		dbClient:          dbClient,
+		kaClient:          kaClient,
+		appCatalogClient:  appCatalogClient,
+		stashClient:       stashClient,
+		namespace:         rand.WithUniqSuffix(api.ResourceSingularMySQL),
+		name:              "mysql-operator",
+		StorageClass:      storageClass,
+		CertStore:         store,
+		certManagerClient: certManagerClient,
+	}, nil
 }
 
 func (f *Framework) Invoke() *Invocation {
