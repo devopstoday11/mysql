@@ -18,12 +18,12 @@ import (
 )
 
 var _ = Describe("MySQL SSL", func() {
+	const dbName = "mysql"
 	var (
 		err              error
 		f                *framework.Invocation
 		mysql            *api.MySQL
 		garbageCASecrets []*core.Secret
-		dbName           string
 		skipMessage      string
 		issuer           *cm_api.Issuer
 	)
@@ -220,7 +220,6 @@ var _ = Describe("MySQL SSL", func() {
 		f = root.Invoke()
 		mysql = f.MySQL()
 		garbageCASecrets = []*core.Secret{}
-		dbName = "mysql"
 		skipMessage = ""
 	})
 

@@ -87,19 +87,16 @@ func (f *Framework) EventuallyCreateUserWithRequiredSSL(meta metav1.ObjectMeta, 
 			}
 			defer en.Close()
 			// create new user
-			_, err = en.Query(sql)
-			if err != nil {
-
+			if _, err = en.Query(sql); err != nil {
 				return false
 			}
 			// grand all permission for the new user
-			_, err = en.Query(privilege)
-			if err != nil {
+			if _, err = en.Query(privilege); err != nil {
 				return false
 			}
+
 			// flush privilege
-			_, err = en.Query(flush)
-			if err != nil {
+			if _, err = en.Query(flush); err != nil {
 				return false
 			}
 
@@ -125,8 +122,7 @@ func (f *Framework) EventuallyCheckReqiredSSLUserConnection(meta metav1.ObjectMe
 			}
 			defer en.Close()
 
-			err = en.Ping()
-			if err != nil {
+			if err = en.Ping(); err != nil {
 				return false
 			}
 			return true
@@ -151,8 +147,7 @@ func (f *Framework) EventuallyCheckRootUserConnection(meta metav1.ObjectMeta, db
 			}
 			defer en.Close()
 
-			err = en.Ping()
-			if err != nil {
+			if err = en.Ping(); err != nil {
 				return false
 			}
 			return true
