@@ -16,25 +16,38 @@ limitations under the License.
 package framework
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	api "kubedb.dev/apimachinery/apis/kubedb/v1alpha1"
 
+	"github.com/appscode/go/log"
 	"github.com/appscode/go/types"
+	"github.com/aws/aws-sdk-go/aws"
 	shell "github.com/codeskyblue/go-sh"
 	. "github.com/onsi/gomega"
+	promClient "github.com/prometheus/client_model/go"
+	"github.com/prometheus/prom2json"
 	core "k8s.io/api/core/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
+	kutil "kmodules.xyz/client-go"
 	core_util "kmodules.xyz/client-go/core/v1"
+	"kmodules.xyz/client-go/tools/portforward"
+	kmon "kmodules.xyz/monitoring-agent-api/api/v1"
 )
 
 const (
 	updateRetryInterval = 10 * 1000 * 1000 * time.Nanosecond
 	maxAttempts         = 5
+	mysqlUpMetric       = "mysql_up"
+	metricsMatchedCount = 2
+	mysqlVersionMetric  = "mysql_version_info"
 )
 
 func deleteInBackground() *metav1.DeleteOptions {
@@ -140,6 +153,87 @@ func (f *Framework) EventuallyWipedOut(meta metav1.ObjectMeta) GomegaAsyncAssert
 		time.Minute*5,
 		time.Second*5,
 	)
+}
+
+func (f *Framework) AddMonitor(obj *api.MySQL) {
+	obj.Spec.Monitor = &kmon.AgentSpec{
+		Prometheus: &kmon.PrometheusSpec{
+			Exporter: &kmon.PrometheusExporterSpec{
+				Port:            api.PrometheusExporterPortNumber,
+				Resources:       core.ResourceRequirements{},
+				SecurityContext: nil,
+			},
+		},
+		Agent: kmon.AgentPrometheus,
+	}
+}
+
+//VerifyExporter uses metrics from given URL
+//and check against known key and value
+//to verify the connection is functioning as intended
+func (f *Framework) VerifyExporter(meta metav1.ObjectMeta) error {
+	tunnel, err := f.ForwardToPort(meta, fmt.Sprintf("%v-0", meta.Name), aws.Int(api.PrometheusExporterPortNumber))
+	if err != nil {
+		log.Infoln(err)
+		return err
+	}
+	defer tunnel.Close()
+	return wait.PollImmediate(time.Second, kutil.ReadinessTimeout, func() (bool, error) {
+		metricsURL := fmt.Sprintf("http://127.0.0.1:%d/metrics", tunnel.Local)
+		mfChan := make(chan *promClient.MetricFamily, 1024)
+		transport := makeTransport()
+
+		err := prom2json.FetchMetricFamilies(metricsURL, mfChan, transport)
+		if err != nil {
+			log.Infoln(err)
+			return false, nil
+		}
+
+		var count = 0
+		for mf := range mfChan {
+			if mf.Metric != nil && mf.Metric[0].Gauge != nil && mf.Metric[0].Gauge.Value != nil {
+				if *mf.Name == mysqlVersionMetric && strings.Contains(DBCatalogName, *mf.Metric[0].Label[0].Value) {
+					count++
+				} else if *mf.Name == mysqlUpMetric && int(*mf.Metric[0].Gauge.Value) > 0 {
+					count++
+				}
+			}
+		}
+
+		if count != metricsMatchedCount {
+			return false, nil
+		}
+		log.Infoln("Found ", count, " metrics out of ", metricsMatchedCount)
+		return true, nil
+	})
+}
+
+func makeTransport() *http.Transport {
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+}
+
+func (f *Framework) ForwardToPort(meta metav1.ObjectMeta, clientPodName string, port *int) (*portforward.Tunnel, error) {
+	var defaultPort = api.PrometheusExporterPortNumber
+	if port != nil {
+		defaultPort = *port
+	}
+
+	tunnel := portforward.NewTunnel(
+		f.kubeClient.CoreV1().RESTClient(),
+		f.restConfig,
+		meta.Namespace,
+		clientPodName,
+		defaultPort,
+	)
+	if err := tunnel.ForwardPort(); err != nil {
+		return nil, err
+	}
+
+	return tunnel, nil
 }
 
 func isDebugTarget(containers []core.Container) (bool, []string) {

@@ -4,9 +4,11 @@ go 1.12
 
 require (
 	github.com/appscode/go v0.0.0-20191119085241-0887d8ec2ecc
+	github.com/aws/aws-sdk-go v1.24.1
 	github.com/codeskyblue/go-sh v0.0.0-20190412065543-76bd3d59ff27
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.34.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/structs v1.1.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/go-xorm/xorm v0.7.9
@@ -15,6 +17,8 @@ require (
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1
+	github.com/prometheus/client_model v0.1.0
+	github.com/prometheus/prom2json v1.3.0
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5

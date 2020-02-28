@@ -202,10 +202,23 @@ var _ = Describe("MySQL SSL", func() {
 		f.DeleteGarbageCASecrets(garbageCASecrets)
 	}
 
+	var verifyExporter = func() {
+		if skipMessage != "" {
+			Skip(skipMessage)
+		}
+		By("Add monitoring configurations to mysql")
+		f.AddMonitor(mysql)
+		// Create MySQL
+		createAndWaitForRunning(framework.RequiredSecureTransportON)
+		By("Verify exporter")
+		err = f.VerifyExporter(mysql.ObjectMeta)
+		Expect(err).NotTo(HaveOccurred())
+		By("Done")
+	}
+
 	BeforeEach(func() {
 		f = root.Invoke()
 		mysql = f.MySQL()
-		mysql.Spec.TerminationPolicy = api.TerminationPolicyDelete
 		garbageCASecrets = []*core.Secret{}
 		dbName = "mysql"
 		skipMessage = ""
@@ -230,6 +243,21 @@ var _ = Describe("MySQL SSL", func() {
 
 	Describe("Test", func() {
 		Context("Exporter", func() {
+			Context("Standalone", func() {
+				BeforeEach(func() {
+					mysql.Spec.RequireSSL = true
+				})
+				It("Should verify Exporter", verifyExporter)
+			})
+
+			Context("Group Replication", func() {
+				BeforeEach(func() {
+					mysql = f.MySQLGroup()
+					mysql.Spec.RequireSSL = true
+				})
+				It("Should verify Exporter", verifyExporter)
+
+			})
 
 		})
 

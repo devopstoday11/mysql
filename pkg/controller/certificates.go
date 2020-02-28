@@ -354,24 +354,12 @@ func (c *Controller) AddOwnerReferenceToSecret(mysql *api.MySQL, secretMeta meta
 	ref2 := metav1.NewControllerRef(mysql, api.SchemeGroupVersion.WithKind(api.ResourceKindMySQL))
 
 	_, _, err = core_util.CreateOrPatchSecret(c.Client, secretMeta, func(in *core.Secret) *core.Secret {
+		in.ObjectMeta = secretMeta
 		core_util.EnsureOwnerReference(&in.ObjectMeta, ref1)
 		core_util.EnsureOwnerReference(&in.ObjectMeta, ref2)
 		return in
 	})
 
-	return err
-}
-
-func (c *Controller) checkTLSCerts(mysql *api.MySQL) error {
-	if _, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLClientCertSuffix), metav1.GetOptions{}); err != nil {
-		return err
-	}
-
-	if _, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLServerCertSuffix), metav1.GetOptions{}); err != nil {
-		return err
-	}
-
-	_, err := c.Client.CoreV1().Secrets(mysql.Namespace).Get(fmt.Sprintf("%s-%s", mysql.GetName(), api.MySQLExporterClientCertSuffix), metav1.GetOptions{})
 	return err
 }
 
@@ -381,13 +369,16 @@ func (c *Controller) ensureExporterSecretForTLSConfig(mysql *api.MySQL) error {
 	if err != nil {
 		return err
 	}
-	// manage secret for exporter
+	// create secret to configure TLS for exporter
 	secretMeta := metav1.ObjectMeta{
 		Name:      "exporter-cnf",
 		Namespace: mysql.Namespace,
 	}
+	ref := metav1.NewControllerRef(mysql, api.SchemeGroupVersion.WithKind(api.ResourceKindMySQL))
+
 	_, _, err = core_util.CreateOrPatchSecret(c.Client, secretMeta, func(in *core.Secret) *core.Secret {
 		in.ObjectMeta = secretMeta
+		core_util.EnsureOwnerReference(&in.ObjectMeta, ref)
 		in.StringData = map[string]string{
 			"exporter.cnf": fmt.Sprintf(`[client]
 user = %s

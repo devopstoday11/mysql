@@ -161,6 +161,23 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 				},
 			},
 		}
+
+		// pass ssl certs flag into args to configure TLS for standalone
+		if mysql.Spec.Topology == nil && mysql.Spec.TLS != nil {
+			args := container.Args
+			tlsArgs := []string{
+				"--ssl-capath=/etc/mysql/certs",
+				"--ssl-ca=/etc/mysql/certs/ca.crt",
+				"--ssl-cert=/etc/mysql/certs/server.crt",
+				"--ssl-key=/etc/mysql/certs/server.key",
+			}
+			args = append(args, tlsArgs...)
+			if mysql.Spec.RequireSSL {
+				args = append(args, "--require-secure-transport=ON")
+			}
+			container.Args = args
+		}
+
 		if mysql.Spec.Topology != nil && mysql.Spec.Topology.Mode != nil &&
 			*mysql.Spec.Topology.Mode == api.MySQLClusterModeGroup {
 			container.Command = []string{
@@ -169,7 +186,7 @@ func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kut
 
 			args := mysql.Spec.PodTemplate.Spec.Args
 
-			// pass args in peer-finder to configure TLS for group replication
+			// pass ssl certs flag into args in peer-finder to configure TLS for group replication
 			if mysql.Spec.TLS != nil {
 				tlsArgs := []string{
 					"--ssl-capath=/etc/mysql/certs",
@@ -240,7 +257,7 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 			args = mysql.Spec.Monitor.Prometheus.Exporter.Args
 			// pass config.my-cnf flag into exporter to configure TLS
 			if mysql.Spec.TLS != nil {
-				// ref: https://github.com/prometheus/mysqld_exporter#general-flags &
+				// ref: https://github.com/prometheus/mysqld_exporter#general-flags
 				// https://github.com/prometheus/mysqld_exporter#customizing-configuration-for-a-ssl-connection
 				args = append(args, "--config.my-cnf=/etc/mysql/certs/exporter.cnf ")
 				argsStr = fmt.Sprintf(`/bin/mysqld_exporter --web.listen-address=:%v --web.telemetry-path=%v %v`,
@@ -301,7 +318,7 @@ mysql -h localhost -nsLNE -e "select 1;" 2>/dev/null | grep -v "*"
 
 		// configure tls
 		if mysql.Spec.TLS != nil {
-			in = cofigureTLS(in, mysql)
+			in = upsertTLSVolume(in, mysql)
 		}
 
 		return in
@@ -504,30 +521,17 @@ func upsertCustomConfig(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.S
 	return statefulSet
 }
 
-func cofigureTLS(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
+func upsertTLSVolume(sts *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSet {
 	for i, container := range sts.Spec.Template.Spec.Containers {
-		if container.Name == api.ResourceSingularMySQL && mysql.Spec.Topology == nil {
-			tlsArgs := []string{
-				"--ssl-capath=/etc/mysql/certs",
-				"--ssl-ca=/etc/mysql/certs/ca.crt",
-				"--ssl-cert=/etc/mysql/certs/server.crt",
-				"--ssl-key=/etc/mysql/certs/server.key",
+		if container.Name == api.ResourceSingularMySQL {
+			volumeMount := core.VolumeMount{
+				Name:      "tls-volume",
+				MountPath: "/etc/mysql/certs",
 			}
-			args := container.Args
-			args = append(args, tlsArgs...)
-			if mysql.Spec.RequireSSL {
-				args = append(args, "--require-secure-transport=ON")
-			}
-			sts.Spec.Template.Spec.Containers[i].Args = args
+			volumeMounts := container.VolumeMounts
+			volumeMounts = core_util.UpsertVolumeMount(volumeMounts, volumeMount)
+			sts.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
 		}
-
-		volumeMount := core.VolumeMount{
-			Name:      "tls-volume",
-			MountPath: "/etc/mysql/certs",
-		}
-		volumeMounts := container.VolumeMounts
-		volumeMounts = core_util.UpsertVolumeMount(volumeMounts, volumeMount)
-		sts.Spec.Template.Spec.Containers[i].VolumeMounts = volumeMounts
 
 		if container.Name == "exporter" {
 			volumeMount := core.VolumeMount{

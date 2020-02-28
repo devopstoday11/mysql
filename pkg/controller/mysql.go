@@ -84,10 +84,6 @@ func (c *Controller) create(mysql *api.MySQL) error {
 			return err
 		}
 
-		if err := c.checkTLSCerts(mysql); err != nil {
-			return err
-		}
-
 		if err := c.ensureExporterSecretForTLSConfig(mysql); err != nil {
 			return err
 		}
