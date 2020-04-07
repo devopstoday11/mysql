@@ -19629,6 +19629,13 @@ func schema_apimachinery_apis_kubedb_v1alpha1_MySQLStatus(ref common.ReferenceCa
 							Format: "",
 						},
 					},
+					"revision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "revision is used to count the total number of mysql upgrade process happened for major version",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "observedGeneration is the most recent generation observed for this resource. It corresponds to the resource's generation, which is updated on mutation by the API Server.",

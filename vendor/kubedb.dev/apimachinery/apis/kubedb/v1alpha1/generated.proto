@@ -849,10 +849,13 @@ message MySQLStatus {
 
   optional string reason = 2;
 
+  // revision is used to count the total number of mysql upgrade process happened for major version
+  optional int32 revision = 3;
+
   // observedGeneration is the most recent generation observed for this resource. It corresponds to the
   // resource's generation, which is updated on mutation by the API Server.
   // +optional
-  optional int64 observedGeneration = 3;
+  optional int64 observedGeneration = 4;
 }
 
 // +kubebuilder:object:root=true

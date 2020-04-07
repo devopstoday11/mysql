@@ -157,10 +157,12 @@ type MySQLGroupSpec struct {
 type MySQLStatus struct {
 	Phase  DatabasePhase `json:"phase,omitempty" protobuf:"bytes,1,opt,name=phase,casttype=DatabasePhase"`
 	Reason string        `json:"reason,omitempty" protobuf:"bytes,2,opt,name=reason"`
+	// revision is used to count the total number of mysql upgrade process happened for major version
+	Revision int32 `json:"revision,omitempty" protobuf:"varint,3,opt,name=revision"`
 	// observedGeneration is the most recent generation observed for this resource. It corresponds to the
 	// resource's generation, which is updated on mutation by the API Server.
 	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty" protobuf:"varint,3,opt,name=observedGeneration"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty" protobuf:"varint,4,opt,name=observedGeneration"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

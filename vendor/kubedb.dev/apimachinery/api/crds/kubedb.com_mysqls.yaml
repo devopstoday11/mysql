@@ -7327,6 +7327,11 @@ spec:
               type: string
             reason:
               type: string
+            revision:
+              description: revision is used to count the total number of mysql upgrade
+                process happened for major version
+              format: int32
+              type: integer
           type: object
       type: object
   version: v1alpha1
