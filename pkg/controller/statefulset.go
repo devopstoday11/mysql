@@ -71,7 +71,7 @@ func (c *Controller) ensureStatefulSet(mysql *api.MySQL) (kutil.VerbType, error)
 
 func (c *Controller) checkStatefulSet(mysql *api.MySQL) error {
 	// SatatefulSet for MySQL database
-	statefulSet, err := c.Client.AppsV1().StatefulSets(mysql.Namespace).Get(mysql.OffshootName(), metav1.GetOptions{})
+	statefulSet, err := c.Client.AppsV1().StatefulSets(mysql.Namespace).Get(getStatefulSetName(mysql), metav1.GetOptions{})
 	if err != nil {
 		if kerr.IsNotFound(err) {
 			return nil
@@ -81,7 +81,7 @@ func (c *Controller) checkStatefulSet(mysql *api.MySQL) error {
 
 	if statefulSet.Labels[api.LabelDatabaseKind] != api.ResourceKindMySQL ||
 		statefulSet.Labels[api.LabelDatabaseName] != mysql.Name {
-		return fmt.Errorf(`intended statefulSet "%v/%v" already exists`, mysql.Namespace, mysql.OffshootName())
+		return fmt.Errorf(`intended statefulSet "%v/%v" already exists`, mysql.Namespace, getStatefulSetName(mysql))
 	}
 
 	return nil
@@ -89,7 +89,7 @@ func (c *Controller) checkStatefulSet(mysql *api.MySQL) error {
 
 func (c *Controller) createStatefulSet(mysql *api.MySQL) (*apps.StatefulSet, kutil.VerbType, error) {
 	statefulSetMeta := metav1.ObjectMeta{
-		Name:      mysql.OffshootName(),
+		Name:      getStatefulSetName(mysql),
 		Namespace: mysql.Namespace,
 	}
 
@@ -360,7 +360,7 @@ func upsertEnv(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.StatefulSe
 				envs = append(envs, []core.EnvVar{
 					{
 						Name:  "BASE_NAME",
-						Value: mysql.Name,
+						Value: getStatefulSetName(mysql),
 					},
 					{
 						Name:  "GOV_SVC",
@@ -466,4 +466,11 @@ func upsertCustomConfig(statefulSet *apps.StatefulSet, mysql *api.MySQL) *apps.S
 		}
 	}
 	return statefulSet
+}
+
+func getStatefulSetName(mysql *api.MySQL) string {
+	if mysql.Status.Revision == int32(0) {
+		return mysql.OffshootName()
+	}
+	return fmt.Sprintf("%s-%d", mysql.OffshootName(), mysql.Status.Revision)
 }
