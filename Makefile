@@ -345,13 +345,13 @@ install:
 	@cd ../installer; \
 	helm install kubedb charts/kubedb \
 		--namespace=kube-system \
-		--set kubedb.registry=$(REGISTRY) \
-		--set kubedb.repository=my-operator \
-		--set kubedb.tag=$(TAG) \
+		--set operator.registry=$(REGISTRY) \
+		--set operator.repository=my-operator \
+		--set operator.tag=$(TAG) \
 		--set imagePullPolicy=Always \
 		$(IMAGE_PULL_SECRETS); \
-	kubectl wait --for=condition=Ready pods -n kube-system -l app=kubedb --timeout=5m; \
-	kubectl wait --for=condition=Available apiservice -l app=kubedb --timeout=5m; \
+	kubectl wait --for=condition=Ready pods -n kube-system -l app.kubernetes.io/name=kubedb,app.kubernetes.io/instance=kubedb --timeout=5m; \
+	kubectl wait --for=condition=Available apiservice -l app.kubernetes.io/name=kubedb,app.kubernetes.io/instance=kubedb --timeout=5m; \
 	helm install kubedb-catalog charts/kubedb-catalog \
 		--namespace=kube-system \
 		--set catalog.elasticsearch=false \
